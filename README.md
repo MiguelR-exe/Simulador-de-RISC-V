@@ -10,18 +10,16 @@ código máquina **paso por paso**, permitiendo inspeccionar registros y memoria
 - `simulator.hpp` / `simulator.cpp` — núcleo: memoria, CPU, decodificación,
   ejecución de las instrucciones, `ecall` y desensamblador.
 - `main.cpp` — REPL interactivo (la interfaz por terminal).
-- `tools/asm.py` — *mini*-ensamblador en Python **solo para generar binarios de
-  prueba** (no forma parte del simulador; el enunciado no pide un ensamblador).
 - `demos/` — programas de ejemplo en `.s` y sus `.bin` ya ensamblados.
 
 ## Compilar y ejecutar
 
 ```bash
 make                      # produce el ejecutable ./rvsim
-./rvsim demos/demo1_riscvtest.bin
+./rvsim demos/demo1_riscvtest.bin  # cambiar demo1_riscvtest.bin por el programa q se quiera probar
 ```
 
-El programa se carga siempre en la dirección `0x00000000`, como pide el enunciado.
+El programa se carga siempre en la dirección `0x00000000`.
 
 ## Features
 
@@ -71,17 +69,6 @@ El programa se carga siempre en la dirección `0x00000000`, como pide el enuncia
    `0x1000` e imprime `Suma = 55`.
 4. **demo4_endian** — accesos byte/half/word y cargas con y sin signo, para
    mostrar el modelo little-endian.
-
-Para reproducir cualquiera:
-
-```bash
-make
-printf 'run\nregs x2\nmem 0x64 0x67\nexit\n' | ./rvsim demos/demo1_riscvtest.bin
-```
-
-Para probar con los programas del enunciado (Quicksort, Árbol simétrico,
-`riscvtest.s`): descárgalos como binario crudo desde CPUlator siguiendo el
-anexo B y cárgalos con `./rvsim programa.bin`.
 
 ## Notas de diseño
 
