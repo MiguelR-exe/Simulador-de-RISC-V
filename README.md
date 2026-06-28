@@ -1,4 +1,4 @@
-# Simulador de RISC-V (RV32I) — Tarea 4 / HW#6
+# Simulador de RISC-V (RV32I) — HW#6
 
 Simulador del ISA base RISC-V de 32 bits. Carga un binario crudo ya compilado,
 mantiene el estado arquitectural (PC, 32 registros y memoria) y ejecuta el
