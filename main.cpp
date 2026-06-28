@@ -1,11 +1,3 @@
-// main.cpp
-// REPL interactivo del simulador RISC-V (RV32I).
-//
-//   $ ./rvsim programa.bin
-//   > step
-//   > regs x5 x14
-//   > mem 0x1000 0x1003
-//   > exit
 #include "simulator.hpp"
 
 #include <cstdint>
@@ -17,14 +9,12 @@
 #include <unordered_map>
 #include <vector>
 
-// --- utilidades de impresion -----------------------------------------------
 static std::string hex32(uint32_t v) {
     std::ostringstream os;
     os << "0x" << std::setw(8) << std::setfill('0') << std::hex << v;
     return os.str();
 }
 
-// Parsea un entero en decimal o hexadecimal (0x...).
 static bool parseU32(const std::string& s, uint32_t& out) {
     try {
         size_t pos = 0;
@@ -35,7 +25,6 @@ static bool parseU32(const std::string& s, uint32_t& out) {
     } catch (...) { return false; }
 }
 
-// "x5" / "5" / ABI ("t0","a0","sp"...) -> indice de registro ; -1 si invalido
 static int parseReg(const std::string& s) {
     static const std::unordered_map<std::string,int> abi = {
         {"zero",0},{"ra",1},{"sp",2},{"gp",3},{"tp",4},{"t0",5},{"t1",6},{"t2",7},
@@ -90,7 +79,6 @@ static void printMem(const Simulator& sim, uint32_t lo, uint32_t hi) {
     std::cout << std::dec << "\n";
 }
 
-// Ejecuta un paso e informa al usuario.
 static bool doStep(Simulator& sim, bool verbose) {
     if (sim.halted) { std::cout << "El programa ya termino.\n"; return false; }
     uint32_t pc   = sim.pc;
@@ -214,8 +202,6 @@ int main(int argc, char** argv) {
             if (tok.size() < 2) { std::cout << "Uso: load ARCHIVO\n"; continue; }
             loadFile(sim, tok[1]);
         } else if (cmd == "reset") {
-            // mantiene el binario: lo mas simple es pedir recargar; aqui solo
-            // reiniciamos PC/registros sin tocar memoria.
             sim.pc = 0; sim.regs.fill(0); sim.halted = false; sim.exitCode = 0;
             std::cout << "Estado reiniciado (PC=0, registros=0).\n";
         } else {

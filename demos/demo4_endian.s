@@ -1,6 +1,4 @@
 # demo4_endian.s
-# Demuestra el modelo de memoria little-endian con accesos de
-# byte / halfword / word y carga con/sin signo.
         li    t0, 0x2000
 
         li    t1, 0x12345678

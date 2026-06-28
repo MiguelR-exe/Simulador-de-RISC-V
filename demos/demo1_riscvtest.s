@@ -1,5 +1,4 @@
 # demo1_riscvtest.s
-# Version propia (estilo riscvtest.s) que ejercita:
 #   add, sub, and, or, slt, addi, lw, sw, beq, jal
 # Resultado esperado: x2 = 25 (0x19) y mem[0x64] = 25.
         addi  x2, x0, 5        # x2 = 5

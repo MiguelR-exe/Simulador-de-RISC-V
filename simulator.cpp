@@ -1,23 +1,17 @@
-// simulator.cpp
 #include "simulator.hpp"
 #include <iostream>
 #include <sstream>
 
-// ===========================================================================
-//  Memoria (little-endian, dispersa por paginas)
-// ===========================================================================
 uint8_t Memory::load8(uint32_t addr) const {
     auto it = pages.find(addr / PAGE_SIZE);
-    if (it == pages.end()) return 0;            // memoria no escrita == 0
+    if (it == pages.end()) return 0;
     return it->second[addr % PAGE_SIZE];
 }
 
 void Memory::store8(uint32_t addr, uint8_t val) {
-    // operator[] crea la pagina (inicializada a 0) si no existe.
     pages[addr / PAGE_SIZE][addr % PAGE_SIZE] = val;
 }
 
-// Los accesos de 16/32 bits se componen byte a byte respetando little-endian.
 uint16_t Memory::load16(uint32_t addr) const {
     return static_cast<uint16_t>(load8(addr) |
                                  (load8(addr + 1) << 8));
@@ -49,38 +43,29 @@ void Memory::loadProgram(const std::vector<uint8_t>& data, uint32_t base) {
 
 void Memory::clear() { pages.clear(); }
 
-// ===========================================================================
-//  Decodificacion de inmediatos
-// ===========================================================================
-// Cada formato de RISC-V empaqueta el inmediato de forma distinta dentro de
-// los 32 bits de la instruccion. Estas funciones lo reconstruyen y extienden
-// el signo cuando corresponde.
 static inline int32_t imm_I(uint32_t inst) {
-    return static_cast<int32_t>(inst) >> 20;          // inst[31:20], signo
+    return static_cast<int32_t>(inst) >> 20;
 }
 static inline int32_t imm_S(uint32_t inst) {
-    return (static_cast<int32_t>(inst & 0xFE000000) >> 20) | // imm[11:5]
-           ((inst >> 7) & 0x1F);                              // imm[4:0]
+    return (static_cast<int32_t>(inst & 0xFE000000) >> 20) |
+           ((inst >> 7) & 0x1F);
 }
 static inline int32_t imm_B(uint32_t inst) {
-    return (static_cast<int32_t>(inst & 0x80000000) >> 19) | // imm[12]+signo
-           ((inst & 0x80) << 4) |                            // imm[11]
-           ((inst >> 20) & 0x7E0) |                          // imm[10:5]
-           ((inst >> 7) & 0x1E);                             // imm[4:1]
+    return (static_cast<int32_t>(inst & 0x80000000) >> 19)
+           ((inst & 0x80) << 4) |
+           ((inst >> 20) & 0x7E0) |
+           ((inst >> 7) & 0x1E);
 }
 static inline int32_t imm_U(uint32_t inst) {
-    return static_cast<int32_t>(inst & 0xFFFFF000);          // imm[31:12]<<12
+    return static_cast<int32_t>(inst & 0xFFFFF000);
 }
 static inline int32_t imm_J(uint32_t inst) {
-    return (static_cast<int32_t>(inst & 0x80000000) >> 11) | // imm[20]+signo
-           (inst & 0xFF000) |                                // imm[19:12]
-           ((inst >> 9) & 0x800) |                           // imm[11]
-           ((inst >> 20) & 0x7FE);                           // imm[10:1]
+    return (static_cast<int32_t>(inst & 0x80000000) >> 11) |
+           (inst & 0xFF000) |
+           ((inst >> 9) & 0x800) |
+           ((inst >> 20) & 0x7FE);
 }
 
-// ===========================================================================
-//  Simulador
-// ===========================================================================
 void Simulator::reset() {
     pc = 0;
     regs.fill(0);
@@ -104,13 +89,13 @@ StepResult Simulator::step() {
     const int      rs1    = (inst >> 15) & 0x1F;
     const int      rs2    = (inst >> 20) & 0x1F;
     const uint32_t funct7 = (inst >> 25) & 0x7F;
-    const uint32_t shamt  = (inst >> 20) & 0x1F;  // shift inmediato (RV32)
+    const uint32_t shamt  = (inst >> 20) & 0x1F;
 
-    uint32_t next_pc = pc + 4;   // por defecto avanza a la siguiente
+    uint32_t next_pc = pc + 4;
 
     switch (opcode) {
 
-    // ---- LOAD (lb, lh, lw, lbu, lhu) ----------------------------------
+    // LOAD (lb, lh, lw, lbu, lhu)
     case 0x03: {
         const uint32_t addr = rget(rs1) + static_cast<uint32_t>(imm_I(inst));
         switch (funct3) {
@@ -124,7 +109,7 @@ StepResult Simulator::step() {
         break;
     }
 
-    // ---- OP-IMM (addi, slti, ... slli, srli, srai) --------------------
+    // OP-IMM (addi, slti, ... slli, srli, srai)
     case 0x13: {
         const uint32_t a = rget(rs1);
         const int32_t  imm = imm_I(inst);
@@ -147,17 +132,17 @@ StepResult Simulator::step() {
         break;
     }
 
-    // ---- AUIPC --------------------------------------------------------
+    // AUIPC
     case 0x17:
         rset(rd, pc + static_cast<uint32_t>(imm_U(inst)));
         break;
 
-    // ---- LUI ----------------------------------------------------------
+    // LUI
     case 0x37:
         rset(rd, static_cast<uint32_t>(imm_U(inst)));
         break;
 
-    // ---- STORE (sb, sh, sw) -------------------------------------------
+    // STORE (sb, sh, sw)
     case 0x23: {
         const uint32_t addr = rget(rs1) + static_cast<uint32_t>(imm_S(inst));
         const uint32_t v = rget(rs2);
@@ -170,7 +155,7 @@ StepResult Simulator::step() {
         break;
     }
 
-    // ---- OP (add, sub, sll, slt, ...) ---------------------------------
+    // OP (add, sub, sll, slt, ...)
     case 0x33: {
         const uint32_t a = rget(rs1);
         const uint32_t b = rget(rs2);
@@ -194,7 +179,7 @@ StepResult Simulator::step() {
         break;
     }
 
-    // ---- BRANCH (beq, bne, blt, bge, bltu, bgeu) ----------------------
+    // BRANCH (beq, bne, blt, bge, bltu, bgeu)
     case 0x63: {
         const uint32_t a = rget(rs1);
         const uint32_t b = rget(rs2);
@@ -212,7 +197,7 @@ StepResult Simulator::step() {
         break;
     }
 
-    // ---- JALR ---------------------------------------------------------
+    // JALR
     case 0x67: {
         const uint32_t target =
             (rget(rs1) + static_cast<uint32_t>(imm_I(inst))) & ~1u;
@@ -221,13 +206,13 @@ StepResult Simulator::step() {
         break;
     }
 
-    // ---- JAL ----------------------------------------------------------
+    // JAL
     case 0x6F:
         rset(rd, pc + 4);
         next_pc = pc + static_cast<uint32_t>(imm_J(inst));
         break;
 
-    // ---- SYSTEM (ecall / ebreak) --------------------------------------
+    // SYSTEM (ecall / ebreak)
     case 0x73: {
         const uint32_t imm = (inst >> 20) & 0xFFF;
         if (funct3 == 0 && imm == 0) {            // ecall
@@ -251,24 +236,19 @@ StepResult Simulator::step() {
     }
 
     pc = next_pc;
-    regs[0] = 0;   // x0 siempre 0 (seguro extra)
+    regs[0] = 0;
     return {StepStatus::Ok, ""};
 }
 
-// ---------------------------------------------------------------------------
-//  Environment calls (subconjunto estilo SPIM / CPUlator)
-//  Convencion RISC-V: a7 (x17) = numero de servicio, a0/a1 = argumentos,
-//  a0 = valor de retorno.
-// ---------------------------------------------------------------------------
 StepResult Simulator::handleEcall() {
-    const uint32_t service = rget(17);   // a7
+    const uint32_t service = rget(17);
     switch (service) {
-    case 1:  // print_int
+    case 1:
         std::cout << static_cast<int32_t>(rget(10));
         std::cout.flush();
         return {StepStatus::Ok, ""};
 
-    case 4: { // print_string (a0 = direccion de cadena terminada en \0)
+    case 4: {
         uint32_t addr = rget(10);
         char c;
         while ((c = static_cast<char>(mem.load8(addr))) != '\0') {
@@ -279,14 +259,14 @@ StepResult Simulator::handleEcall() {
         return {StepStatus::Ok, ""};
     }
 
-    case 5: { // read_int -> a0
+    case 5: {
         int32_t v = 0;
         std::cin >> v;
         rset(10, static_cast<uint32_t>(v));
         return {StepStatus::Ok, ""};
     }
 
-    case 8: { // read_string (a0 = buffer, a1 = longitud maxima)
+    case 8: {
         uint32_t buf = rget(10);
         uint32_t maxlen = rget(11);
         std::string line;
@@ -298,22 +278,22 @@ StepResult Simulator::handleEcall() {
         return {StepStatus::Ok, ""};
     }
 
-    case 11: // print_char
+    case 11:
         std::cout << static_cast<char>(rget(10) & 0xFF);
         std::cout.flush();
         return {StepStatus::Ok, ""};
 
-    case 12: { // read_char -> a0
+    case 12: {
         int c = std::cin.get();
         rset(10, static_cast<uint32_t>(c));
         return {StepStatus::Ok, ""};
     }
 
-    case 10: // exit
+    case 10:
         exitCode = 0;
         return {StepStatus::ExitCall, ""};
 
-    case 17: // exit2 (a0 = codigo de salida)
+    case 17:
         exitCode = static_cast<int>(rget(10));
         return {StepStatus::ExitCall, ""};
 
@@ -325,9 +305,6 @@ StepResult Simulator::handleEcall() {
     }
 }
 
-// ===========================================================================
-//  Desensamblador
-// ===========================================================================
 static std::string hx(int32_t v) {
     std::ostringstream os;
     if (v < 0) os << "-0x" << std::hex << (-v);
